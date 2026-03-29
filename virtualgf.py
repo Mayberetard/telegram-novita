@@ -60,7 +60,9 @@ def check_explicit_content(text: str) -> bool:
     explicit_keywords = [
         "nude", "naked", "sex", "porn", "xxx", "nsfw", "explicit", 
         "18+", "adult content", "naked photo", "nude pic", "sexy pic",
-        "send nudes", "undress", "boobs", "ass", "pussy", "dick", "cock"
+        "send nudes", "undress", "boobs", "ass", "pussy", "dick", "cock",
+        "tits", "breasts", "nipples", "vagina", "penis", "cum", "horny",
+        "masturbate", "fuck", "fucking", "blowjob", "anal", "orgy"
     ]
     text_lower = text.lower()
     return any(keyword in text_lower for keyword in explicit_keywords)
@@ -76,28 +78,40 @@ def mark_photo_sent(user_id: int):
     photo_tracker[user_id] = datetime.datetime.now()
 
 
+def parse_api_response(response_data: dict) -> str:
+    """Parse the API response and extract the text message."""
+    if isinstance(response_data, dict):
+        # Try different possible field names
+        if "text" in response_data:
+            return response_data["text"]
+        elif "response" in response_data:
+            return response_data["response"]
+        elif "message" in response_data:
+            return response_data["message"]
+        elif "result" in response_data:
+            return response_data["result"]
+        elif "data" in response_data:
+            return str(response_data["data"])
+    return str(response_data)
+
+
 def call_chat_api(user_message: str, user_name: str, system_prompt: str = None) -> str:
     """Call the GPT-5 API endpoint."""
     try:
-        # Try primary endpoint first
-        params = {"text": user_message}
-        
         # Build a comprehensive prompt with character context
         if system_prompt:
             full_prompt = f"{system_prompt}\n\nUser ({user_name}): {user_message}"
         else:
             full_prompt = user_message
             
-        params["text"] = full_prompt
+        params = {"text": full_prompt}
         
         response = requests.get(CHAT_API_URL, params=params, timeout=30)
         
         if response.status_code == 200:
             data = response.json()
-            # Adjust based on actual API response structure
-            if isinstance(data, dict):
-                return data.get("response", data.get("message", data.get("result", str(data))))
-            return str(data)
+            logger.info(f"API Response: {data}")
+            return parse_api_response(data)
             
     except Exception as e:
         logger.error(f"Primary API failed: {e}")
@@ -113,9 +127,8 @@ def call_chat_api(user_message: str, user_name: str, system_prompt: str = None) 
         
         if response.status_code == 200:
             data = response.json()
-            if isinstance(data, dict):
-                return data.get("response", data.get("message", data.get("result", str(data))))
-            return str(data)
+            logger.info(f"Fallback API Response: {data}")
+            return parse_api_response(data)
             
     except Exception as e:
         logger.error(f"Fallback API failed: {e}")
@@ -127,9 +140,8 @@ def call_chat_api(user_message: str, user_name: str, system_prompt: str = None) 
         
         if response.status_code == 200:
             data = response.json()
-            if isinstance(data, dict):
-                return data.get("response", data.get("message", data.get("result", str(data))))
-            return str(data)
+            logger.info(f"ChatGPTAI API Response: {data}")
+            return parse_api_response(data)
             
     except Exception as e:
         logger.error(f"ChatGPTAI API failed: {e}")
@@ -149,7 +161,10 @@ def is_photo_request(text: str) -> bool:
         "your photo", "your pic", "picture of you", "photo of you",
         "selfie", "show me", "what do you look like", "your picture",
         "send picture", "send photo", "pic please", "photo please",
-        "can i see you", "let me see you", "show yourself"
+        "can i see you", "let me see you", "show yourself", "send pic",
+        "send photo", "a photo", "a pic", "picture", "your selfie",
+        "photo of yourself", "pic of you", "how do you look", "your face",
+        "see your face", "your image", "image of you"
     ]
     text_lower = text.lower()
     return any(keyword in text_lower for keyword in photo_keywords)
@@ -276,4 +291,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-      
+    
